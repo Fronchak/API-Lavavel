@@ -38,7 +38,6 @@ class MovieController extends Controller
         $movie->genres()->attach($genres);
         $movie->genres;
         return response($movie, 201);
-        //dd($request->all());
     }
 
     /**

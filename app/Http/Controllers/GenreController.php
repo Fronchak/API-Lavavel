@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\EntityNotFoundException;
+use App\Mappers\GenreMapper;
 use App\Models\Genre;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -10,10 +11,12 @@ use Illuminate\Support\Facades\Storage;
 class GenreController extends Controller
 {
     private Genre $genre;
+    private GenreMapper $mapper;
 
-    public function __construct(Genre $genre)
+    public function __construct(Genre $genre, GenreMapper $mapper)
     {
         $this->genre = $genre;
+        $this->mapper = $mapper;
     }
     /**
      * Display a listing of the resource.
@@ -21,7 +24,8 @@ class GenreController extends Controller
     public function index()
     {
         $genres = $this->genre->all();
-        return response($genres);
+        $dtos = $this->mapper->mapModelsToDTOs($genres);
+        return response($dtos);
     }
 
     /**
@@ -45,7 +49,8 @@ class GenreController extends Controller
     public function show($id)
     {
         $genre = $this->getGenreById($id);
-        return response($genre);
+        $dto = $this->mapper->mapModelToDTO($genre);
+        return response($dto);
     }
 
     private function getGenreById($id): Genre {

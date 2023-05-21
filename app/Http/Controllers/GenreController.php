@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\BadRequestException;
 use App\Exceptions\EntityNotFoundException;
 use App\Mappers\GenreMapper;
 use App\Models\Genre;
@@ -40,7 +41,8 @@ class GenreController extends Controller
         $genre->fill($request->all());
         $genre->image = $imageUrn;
         $genre->save();
-        return response($genre, 201);
+        $dto = $this->mapper->mapModelToDTO($genre);
+        return response($dto, 201);
     }
 
     /**
@@ -75,25 +77,32 @@ class GenreController extends Controller
             $hasImage = false;
         }
         $request->validate($rules, $genre->messages());
-        $oldPhoto = $genre->image;
+        $oldImage = $genre->image;
         $genre->fill($request->all());
         if($hasImage) {
-            $photo = $request->file('image');
-            $photoUrl = $photo->store('imgs/genres', 'public');
-            $genre->image = $photoUrl;
+            $image = $request->file('image');
+            $imageUrl = $image->store('imgs/genres', 'public');
+            $genre->image = $imageUrl;
         }
         $genre->update();
         if($hasImage) {
-            Storage::disk('public')->delete($oldPhoto);
+            Storage::disk('public')->delete($oldImage);
         }
-        return response($genre);
+        $dto = $this->mapper->mapModelToDTO($genre);
+        return response($dto);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Genre $genre)
+    public function destroy($id)
     {
-        //
+        $genre = $this->getGenreById($id);
+        $genre->movies;
+        if($genre->movies->count() > 0) {
+            throw new BadRequestException('This genre cannot be deleted, there is a movie register with it');
+        }
+        $genre->delete();
+        return response(null, 204);
     }
 }

@@ -26,4 +26,8 @@ class Genre extends Model
             'image.photo' => 'Image should be a file image'
         ];
     }
+
+    public function movies() {
+        return $this->belongsToMany(Movie::class, 'movie_genres');
+    }
 }

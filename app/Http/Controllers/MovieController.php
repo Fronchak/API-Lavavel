@@ -3,15 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\EntityNotFoundException;
+use App\Mappers\MovieMapper;
 use App\Models\Movie;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class MovieController extends Controller
 {
     private Movie $movie;
+    private MovieMapper $movieMapper;
 
-    public function __construct(Movie $movie) {
+    public function __construct(Movie $movie, MovieMapper $movieMapper) {
         $this->movie = $movie;
+        $this->movieMapper = $movieMapper;
     }
     /**
      * Display a listing of the resource.
@@ -19,7 +23,8 @@ class MovieController extends Controller
     public function index()
     {
         $movies = $this->movie->all();
-        return response($movies, 200);
+        $dtos = $this->movieMapper->mapModelsToDTOs($movies);
+        return response($dtos, 200);
     }
 
     /**
@@ -37,7 +42,8 @@ class MovieController extends Controller
         $genres = $request->input('genres');
         $movie->genres()->attach($genres);
         $movie->genres;
-        return response($movie, 201);
+        $dto = $this->movieMapper->mapModelToDTO($movie);
+        return response($dto, 201);
     }
 
     /**
@@ -46,7 +52,8 @@ class MovieController extends Controller
     public function show($id)
     {
         $movie = $this->getMovieById($id);
-        return response($movie, 200);
+        $dto = $this->movieMapper->mapModelToDTO($movie);
+        return response($dto, 200);
     }
 
     private function getMovieById($id): Movie {
@@ -60,16 +67,42 @@ class MovieController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Movie $movie)
+    public function update(Request $request, $id)
     {
-        //
+        $movie = $this->getMovieById($id);
+        $hasImage = true;
+        $parameters = $request->all();
+        $rules = $movie->rules();
+        if(!array_key_exists('image', $parameters)) {
+            unset($rules['image']);
+            $hasImage = false;
+        }
+        $request->validate($rules, $movie->messages());
+        $oldImage = $movie->image;
+        $movie->fill($request->all());
+        if($hasImage) {
+            $image = $request->file('image');
+            $imageUrn = $image->store('imgs/movies', 'public');
+            $movie->image = $imageUrn;
+        }
+        $movie->update();
+        $genres = $request->input('genres');
+        $movie->genres()->sync($genres);
+        if($hasImage) {
+            Storage::disk('public')->delete($oldImage);
+        }
+        $movie = $this->movie->with(['genres'])->find($id);
+        $dto = $this->movieMapper->mapModelToDTO($movie);
+        return response($dto);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Movie $movie)
+    public function destroy($id)
     {
-        //
+        $movie = $this->getMovieById($id);
+        $movie->delete();
+        return response(null, 204);
     }
 }
